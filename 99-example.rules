@@ -1,0 +1,2 @@
+# Start systemd rtl_433_f007th_prometheus.service for 0483:5740.
+ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="5740", TAG+="systemd", ENV{SYSTEMD_WANTS}="rtl_433_f007th_prometheus@%k.service"

@@ -1,0 +1,9 @@
+[Unit]
+Description=Ambient Weather F007TH metrics exposed as Prometheus gauges
+ConditionPathExists=/dev/%I
+
+[Service]
+ExecStart=/path/to/binary --serial /dev/%I
+DynamicUser=true
+SupplementaryGroups=dialout
+Restart=no
