@@ -47,7 +47,7 @@ var (
 	packetsReceived = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "rtl_433_packets_received",
-			Help: "Packets (temperature messages) received.",
+			Help: "Packets (temperature messages) received",
 		},
 		labels,
 	)
@@ -75,9 +75,16 @@ var (
 	battery = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "rtl_433_battery",
-			Help: "Battery high (1) or low (0).",
+			Help: "Battery high (1) or low (0)",
 		},
 		labels,
+	)
+	rtlError = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "rtl_433_error",
+			Help: "Errors received by the radio",
+		},
+		append(labels, "error"),
 	)
 )
 
@@ -87,6 +94,7 @@ type f007thMessage struct {
 	LowBattery  bool    `json:"low_battery"`
 	Temperature float64 `json:"temperature_c"`
 	Humidity    int     `json:"humidity"`
+	Error       string  `json:"error,omitempty"`
 }
 
 func main() {
@@ -105,7 +113,7 @@ func main() {
 
 	port, err := serial.Open(*serialPort, &serial.Mode{BaudRate: 115200})
 	if err != nil {
-		log.Fatalf("error opening serial port: %s", err)
+		log.Fatalf("error opening serial port: %s\n", err)
 	}
 
 	scanner := bufio.NewScanner(port)
@@ -116,11 +124,18 @@ func main() {
 			log.Printf("error unmarshaling: %s", string(data))
 			continue
 		}
-		// log.Printf("received: %+v", m)
+
 		location := channelMatchers[m.Channel]
 		labels := []string{strconv.FormatInt(int64(m.Device), 10), strconv.FormatInt(int64(m.Channel), 10), location}
 		packetsReceived.WithLabelValues(labels...).Inc()
 		timestamp.WithLabelValues(labels...).SetToCurrentTime()
+
+		if m.Error != "" {
+			log.Printf("received error from radio: %s", m.Error)
+			rtlError.WithLabelValues(append(labels, m.Error)...).Inc()
+			continue
+		}
+
 		temperature.WithLabelValues(labels...).Set(m.Temperature)
 		humidity.WithLabelValues(labels...).Set(float64(m.Humidity) / 100)
 		battery.WithLabelValues(labels...).Set(map[bool]float64{false: 1, true: 0}[m.LowBattery])
